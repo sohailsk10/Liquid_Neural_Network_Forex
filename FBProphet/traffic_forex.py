@@ -9,6 +9,8 @@ from ctrnn_model import CTRNN, NODE, CTGRU
 import argparse
 import datetime as dt
 from tensorflow.keras.models import save_model
+import h5py
+from tensorflow.keras.models import Model
 
 
 def load_forex_data():
@@ -88,8 +90,22 @@ class ForexData:
             yield (batch_x, batch_y)
 
 
+
+
 class ForexModel:
-    def __init__(self, model_type, model_size, learning_rate=0.001):
+    def save_best_model_to_h5(self, h5_file_path):
+        with h5py.File(h5_file_path, "w") as h5_file:
+        # Save the model architecture and weights
+            model_config = self.model.to_json()
+            h5_file.attrs["model_config"] = model_config
+            self.model.save_weights(h5_file)
+        # Save any additional data required for model inference (if needed)
+        # For example, you can save the mean and std values for input normalization
+
+        print("Best model saved to", h5_file_path)
+
+    def __init__(self, model_type, model_size, learning_rate=0.01):
+        self.model = None
         self.model_type = model_type
         self.constrain_op = None
         self.x = tf.placeholder(dtype=tf.float32, shape=[None, None, 7])
@@ -265,6 +281,10 @@ class ForexModel:
                     test_acc,
                 )
             )
+        
+        # Export the best model to .h5 file
+        best_model_h5_path = "best_model.h5"
+        self.save_best_model_to_h5(best_model_h5_path)
 
 
 if __name__ == "__main__":
@@ -280,4 +300,7 @@ if __name__ == "__main__":
     model = ForexModel(model_type=args.model, model_size=args.size)
 
     model.fit(forex_data, epochs=args.epochs, log_period=args.log)
+
+    # Export the best model to .h5 file
+    model.save_best_model_to_h5("best_model.h5")
 
